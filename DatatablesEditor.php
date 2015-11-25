@@ -10,6 +10,7 @@ namespace App\Helpers;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use App\User;
 
 
 class DatatablesEditor {
@@ -108,7 +109,11 @@ class DatatablesEditor {
             // Save, update or delete in DB
             if ($input['action'] == 'create') {
 
-                $model[0]->create($input['data'][$rowFirstId]);
+                //MB 25/11/2015 - we still need all the attributes, so that we can return the new row to the datatable
+                $modelCollection =  User::create($input['data'][0]);
+                $rowId = $modelCollection['attributes']['id'];
+
+              //  $model[0]->create($input['data'][$rowFirstId]);
 
             }
             if ($input['action'] == 'edit') {
@@ -125,7 +130,7 @@ class DatatablesEditor {
                 }
             }
             // assemble the successful data response
-            $resSuccessful = [];
+            //$resSuccessful = [];
 
 
             //MB This assembles the response but  uses the input, so will only contain those fields
@@ -139,8 +144,10 @@ class DatatablesEditor {
 
             //This is the array of fields which we want to display in the grid (don't want created_at etc
             //Mine is stored in the model but could also be defined here - I can use this in lots of places, so that I can have a generic table template for multiple models
-            //$arrDisplayInTable   = $modelCollection['displayInTable']; //The model stores which fields we want to display
-            $arrDisplayInTable = ['id','name','email'];
+            $arrDisplayInTable   = $modelCollection['displayInTable']; //The model stores which fields we want to display
+
+
+
 
 
             foreach($arrDisplayInTable as $returnField){//go through the fields we need to return
