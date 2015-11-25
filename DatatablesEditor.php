@@ -107,7 +107,9 @@ class DatatablesEditor {
 
             // Save, update or delete in DB
             if ($input['action'] == 'create') {
+
                 $model[0]->create($input['data'][$rowFirstId]);
+
             }
             if ($input['action'] == 'edit') {
                 foreach( $rowIdArray as $rowId) {
@@ -125,13 +127,38 @@ class DatatablesEditor {
             // assemble the successful data response
             $resSuccessful = [];
 
-            foreach( $rowIdArray as $rowId) {
-                $resSuccessful[] = array('DT_RowId' => 'row_' .$rowId) + $input['data'][$rowId] ;
+
+            //MB This assembles the response but  uses the input, so will only contain those fields
+            //MB In the case of an inline edit, this may online be one field but the response need to contain all fields, or the datagrid won't refresh
+            //All the new fields will be in $modelCollection['attributes'] - but this will include some we don't want to display
+
+
+
+            $arrReturn = array(); //the final array will will jsonise and return
+            $arrFieldsToReturn = array(); // fields and values which will go in the return array
+
+            //This is the array of fields which we want to display in the grid (don't want created_at etc
+            //Mine is stored in the model but could also be defined here - I can use this in lots of places, so that I can have a generic table template for multiple models
+            //$arrDisplayInTable   = $modelCollection['displayInTable']; //The model stores which fields we want to display
+            $arrDisplayInTable = ['id','name','email'];
+
+
+            foreach($arrDisplayInTable as $returnField){//go through the fields we need to return
+                //add this field to the return array, from the $modelCollection['attributes']
+                $arrFieldsToReturn[$returnField] = $modelCollection['attributes'][$returnField];
             }
+            //now this needs to be added to the return array, with the row id as a key
+            $arrReturn[] = array('DT_RowId' => 'row_' .$rowId) + $arrFieldsToReturn ;
+
+
+
+/*            foreach( $rowIdArray as $rowId) {
+                $resSuccessful[] = array('DT_RowId' => 'row_' .$rowId) + $input['data'][$rowId] ;
+            }*/
 
             return response()->json(
                 array(
-                    'data' =>  $resSuccessful
+                    'data' =>  $arrReturn //$resSuccessful
                  )
             );
         }
