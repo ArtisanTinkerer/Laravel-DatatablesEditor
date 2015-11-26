@@ -1,3 +1,8 @@
+
+Amended so it works with the inline editor.
+Only works with models.
+
+
 This API module enables DataTables Editor to interface with Laravel 5.x
 
  - Supports the latest Datatables Editor 1.5.1 Multi-Row Editing
