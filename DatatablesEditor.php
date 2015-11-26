@@ -94,7 +94,7 @@ class DatatablesEditor
             $modelCollection = self::doDBAction($input,$model,$rowIdArray);
 
             //return the Ajax response.
-           return  self::sendResponse($rowIdArray,$model);
+           return  self::sendResponse($rowIdArray,$model,$modelCollection);
 
         }
     }
@@ -147,7 +147,7 @@ class DatatablesEditor
      */
 
 
-Private static function sendResponse($rowIdArray,$model){
+Private static function sendResponse($rowIdArray,$model,$modelCollection){
         //MB This assembles the response but previously used the input, so would only contain those fields
         //In the case of an inline edit, this may only be one field but the response needs to contain all fields, or the Datagrid won't refresh
         //All the new fields will be in $modelCollection['attributes'] - but this will include some we don't want to display
@@ -162,7 +162,9 @@ Private static function sendResponse($rowIdArray,$model){
 
 
         foreach( $rowIdArray as $rowId) { //iterate through the rows - will just be one, unless multiline edit
-            $modelCollection = $model->find($rowId);//find the model which matches this rowId
+            if ($rowId != 0) {//the rowId will be 0 if this a new record
+                $modelCollection = $model->find($rowId);//find the model which matches this rowId
+            }
             foreach ($arrDisplayInTable as $returnField) {//go through the fields we need to return
                 //add this field to the return array, from the $modelCollection['attributes']
 
