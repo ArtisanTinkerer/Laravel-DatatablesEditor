@@ -5,7 +5,12 @@ namespace App\Helpers;
  * User: John Kirkpatrick
  * Date: 9/1/2015
  * Time: 12:00 AM
+ *
+ * Mick Byrne amended.
+ * Now works with inline editing - but only for models
+ * 26/11/2015
  */
+
 
 
 use Illuminate\Database\Eloquent\Model;
@@ -13,14 +18,13 @@ use Illuminate\Http\Request;
 use App\User;
 
 
-class DatatablesEditor {
-
+class DatatablesEditor
+{
 
     public function __construct()
     {
 
-    }
-
+     }
 
     /**
      * @param Request $req
@@ -31,32 +35,14 @@ class DatatablesEditor {
      * Process AJAX request from Datatables Editor http://editor.datatables.net/
      * Create, Update, Delete (soft)
      */
-    public static function process(Request $req, $validator, $model) {
-
+    public static function process(Request $req, $validator, $model)
+    {
         $input = $req->input();
 
         $rowFirstId = array_keys($input['data'])[0];
         $rowIdArray = array_keys($input['data']);
 
-
         $data = null;
-
-        // This is done outside of the class and passed in
-        // do form validation
-        /*
-        $validator = Validator::make($input['data'][$rowFirstId], [
-            //  'name_first' => 'required|max:10|same:name_last|ip',
-            'name_first' => 'required|max:10',
-            'name_last' => 'required|max:10'
-        ]);
-
-        $validator->setCustomMessages([
-            'name_first.required' => 'Please provide your first name.',
-            'name_first.max' => 'Please shorten your first name.',
-            'name_last.required' => 'Please provide your last name.',
-            'name_last.max' => 'Please shorten your last name.',
-        ]);
-        */
 
         if ($validator->fails()) {
             $messages = $validator->errors();
@@ -77,12 +63,12 @@ class DatatablesEditor {
         } else {
 
             // condition the data Obj or string
-            if (gettype($model) != 'object' & gettype($model) != 'string' )
+            if (gettype($model) != 'object' & gettype($model) != 'string')
                 return array(
                     'error' => 'System Error: var passed to DT Editor is not a string or an object'
                 );
-
-            if (gettype($model) != "string" ) {
+            //if its a model
+            if (gettype($model) != "string") {
 
                 $className = get_class($model);
                 $classNameArray = explode("\\", $className);
@@ -90,8 +76,7 @@ class DatatablesEditor {
                 if (in_array('Eloquent', $classNameArray) & in_array('Builder', $classNameArray)) {
                     // Model is Builder
                     $model = $model->get()[0];
-                }
-                else if (!in_array('Eloquent', $classNameArray) | !in_array('Collection', $classNameArray)) {
+                } else if (!in_array('Eloquent', $classNameArray) | !in_array('Collection', $classNameArray)) {
                     // is NOT an Elequent Collection
                     return array(
                         'error' => 'System Error: var passed to DT Editor is not an Eloquent Builder or Collection'
@@ -99,76 +84,103 @@ class DatatablesEditor {
                     // Model is Eloquent
 
                 }
-            }
-
-            else {
+            } else {
                 // It's a string!
                 $model = $model::all();
             }
 
-            // Save, update or delete in DB
-            if ($input['action'] == 'create') {
 
-                //MB 25/11/2015 - we still need all the attributes, so that we can return the new row to the datatable
-                $modelCollection =  User::create($input['data'][0]);
-                $rowId = $modelCollection['attributes']['id'];
+            //the model we are modifying/updating is returned after doing the DB action
+            $modelCollection = self::doDBAction($input,$model,$rowIdArray);
 
-              //  $model[0]->create($input['data'][$rowFirstId]);
+            //return the Ajax response.
+           return  self::sendResponse($rowIdArray,$model);
 
-            }
-            if ($input['action'] == 'edit') {
-                foreach( $rowIdArray as $rowId) {
+        }
+    }
+
+
+    /**
+     * @param $input - from the POST
+     * @param $model - the model we are using
+     * @param $rowIdArray - can be one or multiple row ids
+     *
+     */
+    private static function doDBAction($input,$model,$rowIdArray)
+    {
+
+        switch ($input['action']) {
+            case 'create':
+
+                $rowIdArray = array();
+                //MB 25/11/2015 - we still need all the attributes, so that we can return the new row to the Datatable
+                $modelCollection = User::create($input['data'][0]);
+                $rowIdArray[] = $modelCollection['attributes']['id'];
+
+                break;
+            case 'edit':
+
+                foreach ($rowIdArray as $rowId) {
                     $modelCollection = $model->find($rowId);
                     $modelCollection->update($input['data'][$rowId]);
-                    // $modelCollection->save();
                 }
-            }
-            if ($input['action'] == 'remove') {
-                foreach( $rowIdArray as $rowId) {
+
+                break;
+            case 'remove':
+
+                foreach ($rowIdArray as $rowId) {
                     $modelCollection = $model->find($rowId);
                     $modelCollection->delete();
                 }
-            }
-            // assemble the successful data response
-            //$resSuccessful = [];
+
+                break;
+
+        }
+        return  $modelCollection;
+    }
+
+    /**
+     * @param $rowIdArray - can be one or many, if we do a multiselect
+     * @param $model
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
 
 
-            //MB This assembles the response but  uses the input, so will only contain those fields
-            //MB In the case of an inline edit, this may online be one field but the response need to contain all fields, or the datagrid won't refresh
-            //All the new fields will be in $modelCollection['attributes'] - but this will include some we don't want to display
+Private static function sendResponse($rowIdArray,$model){
+        //MB This assembles the response but previously used the input, so would only contain those fields
+        //In the case of an inline edit, this may only be one field but the response needs to contain all fields, or the Datagrid won't refresh
+        //All the new fields will be in $modelCollection['attributes'] - but this will include some we don't want to display
 
 
+        $arrReturn = array(); //the final array will will jsonise and return
+        $arrFieldsToReturn = array(); // fields and values which will go in the return array
 
-            $arrReturn = array(); //the final array will will jsonise and return
-            $arrFieldsToReturn = array(); // fields and values which will go in the return array
-
-            //This is the array of fields which we want to display in the grid (don't want created_at etc
-            //Mine is stored in the model but could also be defined here - I can use this in lots of places, so that I can have a generic table template for multiple models
-            $arrDisplayInTable   = $modelCollection['displayInTable']; //The model stores which fields we want to display
-
+        //This is the array of fields which we want to display in the grid (don't want created_at etc).
+        //Mine is stored in the model but could also be defined here - I can use this in lots of places, so that I can have a generic table template for multiple models
+        $arrDisplayInTable   = $model['displayInTable'];
 
 
-
-
-            foreach($arrDisplayInTable as $returnField){//go through the fields we need to return
+        foreach( $rowIdArray as $rowId) { //iterate through the rows - will just be one, unless multiline edit
+            $modelCollection = $model->find($rowId);//find the model which matches this rowId
+            foreach ($arrDisplayInTable as $returnField) {//go through the fields we need to return
                 //add this field to the return array, from the $modelCollection['attributes']
+
                 $arrFieldsToReturn[$returnField] = $modelCollection['attributes'][$returnField];
             }
-            //now this needs to be added to the return array, with the row id as a key
+
+            //now this needs to be added to the return array.
             $arrReturn[] = array('DT_RowId' => 'row_' .$rowId) + $arrFieldsToReturn ;
-
-
-
-/*            foreach( $rowIdArray as $rowId) {
-                $resSuccessful[] = array('DT_RowId' => 'row_' .$rowId) + $input['data'][$rowId] ;
-            }*/
-
-            return response()->json(
-                array(
-                    'data' =>  $arrReturn //$resSuccessful
-                 )
-            );
         }
+
+
+
+        return response()->json(
+            array(
+                'data' =>  $arrReturn //$resSuccessful
+            )
+        );
     }
+
 }
 
